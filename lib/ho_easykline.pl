@@ -251,7 +251,7 @@ if (!defined($win)) {
 		"Easy K-lines are only available when typing in that window.");
 }
 
-ho_print("For help, switch to the window named rKlineAll and type 'help' there.");
+ho_print("For help, switch to the window named easykline and type 'help' there.");
 
 if (!am_i_opered()) {
     ho_print("You'll need to oper up to use this script.");
