@@ -1,16 +1,33 @@
+# ho_easykline.pl
+#
+# $Id: ho_easykline.pl,v 1.4 2004/09/14 16:49:02 jvunder REL_0_3 $
+#
+# Part of the Hybrid Oper Script Collection
+#
+# Easy K-lines.
+#
+
+
 use strict;
-use warnings;
-use vars qw(%IRSSI);
+use vars qw($VERSION %IRSSI $SCRIPT_NAME);
 
 use Irssi;
 use Irssi::Irc;           # necessary for redirect_register()
-use Irssi::HOSC::again;
-use Irssi::HOSC::again 'Irssi::HOSC::Base';
-use Irssi::HOSC::again 'Irssi::HOSC::Tools';
+use HOSC::again;
+use HOSC::again 'HOSC::Base';
+use HOSC::again 'HOSC::Tools';
 
-%IRSSI = Irssi::HOSC::Base::ho_get_IRSSI(
-    name        => 'EasyKline',
+$SCRIPT_NAME = 'easykline';
+($VERSION) = '$Revision: 1.4 $' =~ / (\d+\.\d+) /;
+%IRSSI = (
+    authors     => 'Garion, Azonic',
+    contact	    => 'garion@efnet.nl',
+    name        => 'ho_easykline',
     description => 'Makes K-lining drones as easy as cake.',
+    license	    => 'Public Domain',
+    url	        => 'http://www.garion.org/irssi/hosc.php',
+    changed	    => '25/02/2003 19:29 | Feb 9 2025 - Azonic',
+    changes     => 'modified to allow remote kline on all connected servers with tilde/ipv6 & CIDR notation.',
 );
 
 # Master switch to prevent accidents.
@@ -147,23 +164,73 @@ sub kline_from_line {
         return;
     }
 
-    if ($line =~ /\b~?([a-zA-Z0-9._-]{1,10})@([a-zA-Z0-9_.-]+)\b/) {
+    # Handling CIDR subnet K-line (IPv6 and IPv4)
+    if ($line =~ /\b~?([a-fA-F0-9:.]+)\/(\d{1,3})\b/) {  # Subnet CIDR notation (IPv6 or IPv4)
+        my ($subnet, $prefix) = ($1, $2);
+        my ($user,) = ($3);
+        # Validate prefix length (IPv4: 0-32, IPv6: 0-128)
+        if (($subnet =~ /:/ && $prefix > 128) || ($subnet !~ /:/ && $prefix > 32)) {
+            ho_print_active("Invalid subnet prefix length: $subnet/$prefix");
+            return;
+        }
+
+        # The K-line will always be applied to the entire subnet, not a specific user
+        my $klineuseronly = Irssi::settings_get_bool('ho_easykline_useronly');
+        my $klinetime     = Irssi::settings_get_int('ho_easykline_time');
+        my $klinereason   = Irssi::settings_get_str('ho_easykline_reason');
+        if ($klineuseronly == 1) {
+            $user = "*" . $3;
+        } else {
+
+
+        # If the user-only option is enabled, we'll still K-line the entire subnet
+        my $user = "*";  # Always apply to the entire subnet
+
+        }
+
+        if ($line =~ /^~/) {
+            $user = "~*";  # If input starts with ~, keep it for wildcard users
+        }
+
+        if ($klinetime == 0) {
+            ho_print_active("K-lined $user\@$subnet/$prefix :$klinereason");
+            $server->command("quote kline $user\@$subnet/$prefix :$klinereason");
+        } else {
+            ho_print_active("K-lined $klinetime $user\@$subnet/$prefix ON * :$klinereason");
+            $server->command("quote kline $klinetime $user\@$subnet/$prefix ON * :$klinereason");
+        }
+
+        return;
+    }
+
+    # Handling user K-line ~user@host format
+    if ($line =~ /\b~?([a-zA-Z0-9._-]{1,10})@((?:[a-zA-Z0-9._:-]+|\d{1,3}(?:\.\d{1,3}){3})(?:\/\d{1,2})?)\b/) {
+        # This handles the regular ~user@host format
         my ($user, $host) = ($1, $2);
         my $klineuseronly = Irssi::settings_get_bool('ho_easykline_useronly');
         my $klinetime     = Irssi::settings_get_int('ho_easykline_time');
         my $klinereason   = Irssi::settings_get_str('ho_easykline_reason');
+
+        # User-only logic
         if ($klineuseronly == 1) {
             $user = "*" . $1;
         } else {
             $user = "*";
         }
+
+        if ($line =~ /^~/) {
+            $user = "~*";
+        }
+
         if ($klinetime == 0) {
             ho_print_active("K-lined $user\@$host :$klinereason");
             $server->command("quote kline $user\@$host :$klinereason");
         } else {
-            ho_print_active("K-lined $klinetime $user\@$host :$klinereason");
-            $server->command("quote kline $klinetime $user\@$host :$klinereason");
+            ho_print_active("K-lined $klinetime $user\@$host ON * :$klinereason");
+            $server->command("quote kline $klinetime $user\@$host ON * :$klinereason");
         }
+
+        return;
     }
 }
 
@@ -180,11 +247,11 @@ Irssi::settings_add_bool('ho', 'ho_easykline_useronly', 1);
 my $win = Irssi::window_find_name('easykline');
 if (!defined($win)) {
     ho_print_warning("You are missing the easykline window. Use /WINDOW ".
-        "NEW HIDDEN and /WINDOW NAME easykline to create it.\n".
-        "Easy K-lines are only available when typing in that window.");
+		"NEW HIDDEN and /WINDOW NAME easykline to create it.\n".
+		"Easy K-lines are only available when typing in that window.");
 }
 
-ho_print("For help, switch to the window named easykline and type 'help' there.");
+ho_print("For help, switch to the window named rKlineAll and type 'help' there.");
 
 if (!am_i_opered()) {
     ho_print("You'll need to oper up to use this script.");
@@ -193,4 +260,3 @@ if (!am_i_opered()) {
 ho_print_init_end();
 
 # ---------------------------------------------------------------------
-
