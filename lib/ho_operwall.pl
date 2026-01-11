@@ -33,7 +33,7 @@ $SCRIPT_NAME = 'Operwall';
     url         => 'http://www.jamesoff.net/irc',
     changed     => '06/04/2004 08:15 | May 19 2024 by Azonic',
     changes     => 'v2.0',
-    changes     => 'modified to allow acsii art in operwall/locops by Azonic.'
+    changes     => 'modified to allow ascii art in operwall/locops by Azonic.'
 );
 
 # ---------------------------------------------------------------------
